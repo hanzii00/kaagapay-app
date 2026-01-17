@@ -25,24 +25,23 @@ async function fetchWithAuth<T>(
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
-    redirect: 'manual', // Don't follow redirects
   });
-
-  // Handle redirects (usually means not authenticated)
-  if (response.type === 'opaqueredirect' || response.status === 302 || response.status === 301) {
-    throw new Error('Authentication required. Please log in.');
-  }
 
   // Handle 401/403 authentication errors
   if (response.status === 401 || response.status === 403) {
     // Clear invalid token
     localStorage.removeItem('authToken');
-    throw new Error('Authentication required. Please log in.');
+    localStorage.removeItem('user');
+    // Only throw auth error if we're not on login/register endpoints
+    if (!endpoint.includes('/login') && !endpoint.includes('/registration')) {
+      window.location.href = '/login';
+      throw new Error('Authentication required. Please log in.');
+    }
   }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || error.detail || 'Request failed');
+    throw new Error(error.message || error.detail || error.error || 'Request failed');
   }
 
   return response.json();
@@ -82,17 +81,23 @@ export interface AuthResponse {
 export interface ReliefSite {
   id: number;
   name: string;
-  description: string;
+  description?: string;
   address: string;
   latitude: number;
   longitude: number;
-  status: 'active' | 'inactive' | 'full';
-  capacity: number;
-  current_occupancy: number;
+  coordinates?: string;
+  status: 'open' | 'full' | 'completed';
+  capacity?: number;
+  current_occupancy?: number;
   contact_phone?: string;
   contact_email?: string;
   created_at: string;
   updated_at: string;
+  // Optional fields from serializer
+  tasks?: any[];
+  pin_status?: string;
+  google_maps_url?: string;
+  google_maps_directions_url?: string;
 }
 
 export interface Task {
